@@ -131,9 +131,24 @@ proc genMg(page: Page): string =
     result.add($b)
 
 proc toHead*(meta: Info): string =
+  # XXX no HTML escaping here
   for a in meta.elements:
     case a.name
     of "template", "lazy": discard
+    of "title":
+      result.add("<title>")
+      result.add(a.body)
+      result.add("</title>")
+      result.add("<meta property=\"og:title\" content=\"")
+      result.add(a.body)
+      result.add("\"/>")
+    of "description":
+      result.add("<meta property=\"description\" content=\"")
+      result.add(a.body)
+      result.add("\"/>")
+      result.add("<meta property=\"og:description\" content=\"")
+      result.add(a.body)
+      result.add("\"/>")
     of "background":
       let val = a.body
       result.add("<style>body{background-")

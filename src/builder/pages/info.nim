@@ -7,7 +7,7 @@ type
   Info* = object
     elements*: seq[Element]
     `template`*: string
-    title*: string
+    title*, description*: string
     lazy*: bool
 
 proc body*(elem: Element): lent string =
@@ -183,6 +183,7 @@ proc parseInfo*(s: string): Info =
       case elem.name
       of "template": result.`template` = elem.body
       of "title": result.title = elem.body
+      of "description": result.description = elem.body
       of "lazy": result.lazy = true
       else: discard
     inc i

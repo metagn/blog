@@ -1,0 +1,2 @@
+--threads:on # currently just pages
+--gc:orc # may or may not increase compilation time

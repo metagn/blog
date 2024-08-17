@@ -6,15 +6,16 @@ name: build pages
 env:
   SITE_HOST: githubpages
 jobs:
-  environment:
-    name: github-pages
-    url: ${{steps.deployment.outputs.page_url}}
   build-pages:
     runs-on: ubuntu-latest
-    if: "${{ contains(github.event.head_commit.message, '[deploy]') || (!contains(github.event.head_commit.message, '[preview]') && !contains(github.event.head_commit.message, '[test]')) }}"
+    environment:
+      name: github-pages
+      url: ${{steps.deployment.outputs.page_url}}
     permissions:
       contents: read
       deployments: write
+      pages: write
+      id-token: write
     steps:
       - uses: actions/checkout@v2
 

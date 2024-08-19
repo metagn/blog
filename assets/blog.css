@@ -58,3 +58,13 @@ pre, code {
 img {
   max-width: 100%;
 }
+
+#title {
+  margin-bottom: 4px;
+}
+#subtitle {
+  margin-top: 0;
+  margin-bottom: 0;
+  font-size: 18px;
+  font-weight: normal;
+}

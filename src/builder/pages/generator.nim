@@ -1,4 +1,4 @@
-import strutils, info, margrave, margrave/[common, element], margrave/parser/[defs, utils]
+import strutils, info, margrave, margrave/[common, element], margrave/parser/[defs, utils], rot
 
 type
   PageKind* = enum
@@ -78,8 +78,8 @@ proc processSingleElement(page: Page, element: MargraveElement) =
   if page.info.lazy:
     if not element.isText:
       case element.tag
-      of img: element.attr("loading", "lazy")
-      of audio, video: element.attr("preload", "none")
+      of tagImage: element.attr("loading", "lazy")
+      of tagAudio, tagVideo: element.attr("preload", "none")
       else: discard
 
 proc processNested(page: Page, element: MargraveElement) =
@@ -91,7 +91,7 @@ proc processNested(page: Page, element: MargraveElement) =
 import uri
 
 proc setYoutube(element: MargraveElement, id: NativeString) =
-  element.tag = otherTag
+  element.tag = tagOther
   element.attr("tag", "iframe")
   element.attr("width", "953")
   element.attr("height", "536")
@@ -102,7 +102,7 @@ proc setYoutube(element: MargraveElement, id: NativeString) =
   element.attr("allowfullscreen", "")
 
 proc setLink(element: MargraveElement, link: Link) =
-  if not element.isText and element.tag == img:
+  if not element.isText and element.tag == tagImage:
     let uri = parseUri($link)
     var h = uri.hostname
     h.removePrefix("www.")
@@ -130,27 +130,73 @@ proc genMg(page: Page): string =
     processNested(page, b)
     result.add($b)
 
-proc toHead*(meta: Info): string =
-  # XXX no HTML escaping here
-  for a in meta.elements:
-    case a.name
-    of "template", "lazy": discard
-    of "title":
-      result.add("<title>")
-      result.add(a.body)
-      result.add("</title>")
-      result.add("<meta property=\"og:title\" content=\"")
-      result.add(a.body)
-      result.add("\"/>")
-    of "description":
-      result.add("<meta property=\"description\" content=\"")
-      result.add(a.body)
-      result.add("\"/>")
-      result.add("<meta property=\"og:description\" content=\"")
-      result.add(a.body)
-      result.add("\"/>")
-    of "background":
-      let val = a.body
+proc addHead(result: var string, a: RotPhrase)
+
+proc defaultAddHtml(result: var string, name: string, body: RotTerm, a: RotPhrase) =
+  result.add('<')
+  result.add(name)
+  proc addArgument(res: var string, arg: tuple[name, value: string]) =
+    if arg.name.len == 0:
+      echo "got argument without name"
+    else:
+      res.add(' ')
+      res.add(arg.name)
+    if arg.value.len != 0:
+      res.add("=\"")
+      res.add(arg.value)
+      res.add('"')
+  for i in 1 ..< a.items.len:
+    if a.items[i].kind == Symbol:
+      addArgument(result, (a.items[i].symbol, ""))
+    elif a.items[i].kind == Association:
+      let left = a.items[i].association.left
+      let right = a.items[i].association.right
+      var arg: tuple[name, value: string]
+      if left.kind == Symbol:
+        arg.name = left.symbol
+      elif left.kind == Text:
+        arg.name = left.text
+      if right.kind == Symbol:
+        arg.value = right.symbol
+      elif right.kind == Text:
+        arg.value = right.text
+      if arg.name.len != 0:
+        addArgument(result, arg)
+  let needsBody = name in ["script"]
+  case body.kind
+  of Symbol, Text, Block:
+    result.add('>')
+    if body.kind == Symbol:
+      result.add(body.symbol)
+    elif body.kind == Text:
+      result.add(body.text)
+    elif body.kind == Block:
+      for p in body.block.items:
+        result.addHead(p)
+    result.add("</")
+    result.add(name)
+    result.add('>')
+  else:
+    if needsBody:
+      result.add("></")
+      result.add(name)
+      result.add('>')
+    else:
+      result.add("/>")
+
+proc addHead(result: var string, a: RotPhrase) =
+  if not (a.items.len != 0 and a.items[0].kind == Symbol):
+    for b in a.items:
+      if b.kind == Text:
+        result.add b.text
+    return
+  let name = a.items[0].symbol
+  let body = if a.items.len == 1: rotUnit() else: a.items[^1]
+  case name
+  of "template", "lazy": discard
+  of "background":
+    if body.kind == Text:
+      let val = body.text
       result.add("<style>body{background-")
       if '/' in val:
         result.add("image:url(\"")
@@ -160,8 +206,9 @@ proc toHead*(meta: Info): string =
         result.add("color:")
         result.add(val)
       result.add("}</style>")
-    of "icon":
-      let link = a.body
+  of "icon":
+    if body.kind == Text:
+      let link = body.text
       result.add("<link rel=\"icon\" ")
       if link.endsWith(".ico"):
         result.add("type=\"image/x-icon\" ")
@@ -172,54 +219,67 @@ proc toHead*(meta: Info): string =
       result.add("href=\"")
       result.add(link)
       result.add("\"/>")
-    of "stylesheet":
+  of "stylesheet":
+    if body.kind == Text:
+      let val = body.text
       result.add("<link rel=\"stylesheet\" href=\"")
-      result.add(a.body)
+      result.add(val)
       result.add("\"/>")
-    else:
-      result.add('<')
-      result.add(a.name)
-      proc addArgument(res: var string, arg: tuple[name, value: string]) =
-        if arg.name.len == 0:
-          echo "got argument without name"
-        else:
-          res.add(' ')
-          res.add(arg.name)
-        if arg.value.len != 0:
-          res.add("=\"")
-          res.add(arg.value)
-          res.add('"')
-      for i in 0 ..< a.arguments.len - 1:
-        addArgument(result, a.arguments[i])
-      let needsBody = a.name in ["script"]
-      if a.arguments.len != 0:
-        let last = a.arguments[^1]
-        if last.name.len != 0:
-          addArgument(result, last)
-          if needsBody:
-            result.add("></")
-            result.add(a.name)
-            result.add('>')
-          else:
-            result.add("/>")
-        else:
-          result.add('>')
-          result.add(last.value)
-          result.add("</")
-          result.add(a.name)
-          result.add('>')
-      else:
-        if needsBody:
-          result.add("></")
-          result.add(a.name)
-          result.add('>')
-        else:
-          result.add("/>")
+  of "article", "description", "url", "sitename", "type", "image", "author", "time", "tag", "tags", "published_time":
+    # article
+    discard
+  else:
+    result.defaultAddHtml(name, body, a)
+
+proc toHead*(meta: Info): string =
+  result = ""
+  if meta.isArticle:
+    if meta.article.title != "":
+      result.add("<meta name=\"og:title\" content=\"")
+      result.add meta.article.title
+      result.add("\"/>")
+    if meta.article.description != "":
+      result.add("<meta name=\"og:description\" content=\"")
+      result.add meta.article.description
+      result.add("\"/>")
+    if meta.article.sitename != "":
+      result.add("<meta name=\"og:site_name\" content=\"")
+      result.add meta.article.sitename
+      result.add("\"/>")
+    if meta.article.url != "":
+      result.add("<meta name=\"og:url\" content=\"")
+      result.add meta.article.url
+      result.add("\"/>")
+    if meta.article.type != "":
+      result.add("<meta name=\"og:type\" content=\"")
+      result.add meta.article.type
+      result.add("\"/>")
+    if meta.article.author != "":
+      result.add("<meta name=\"og:article:author\" content=\"")
+      result.add meta.article.author
+      result.add("\"/>")
+    if meta.article.time != "":
+      result.add("<meta name=\"og:article:published_time\" content=\"")
+      result.add meta.article.time
+      result.add("\"/>")
+    if meta.article.tags.len != 0:
+      for tag in meta.article.tags:
+        if tag != "":
+          result.add("<meta name=\"og:article:tag\" content=\"")
+          result.add tag
+          result.add("\"/>")
+    if meta.article.twitterCard != "":
+      result.add("<meta name=\"twitter:card\" content=\"")
+      result.add meta.article.twitterCard
+      result.add("\"/>")
+  for a in meta.elements.items:
+    addHead(result, a)
 
 proc toHtml*(page: Page, tmpl: string): string =
-  result = tmpl.multiReplace({
-    "$head": toHead(page.info),
-    "$body": case page.kind
-             of pkMargrave: genMg(page)
-             else: ""
-  })
+  {.cast(gcsafe).}:
+    result = tmpl.multiReplace({
+      "$head": toHead(page.info),
+      "$body": case page.kind
+               of pkMargrave: genMg(page)
+               else: ""
+    })

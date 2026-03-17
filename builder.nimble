@@ -10,6 +10,7 @@ license       = "MIT"
 
 requires "nim >= 1.6.4"
 requires "margrave#HEAD"
+requires "https://github.com/metagn/rot#HEAD"
 
 task runBuilder, "runs builder":
   exec "nim r -d:release src/builder"

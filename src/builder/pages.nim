@@ -94,10 +94,7 @@ proc finishRedirects(pages: var Pages) =
       redirectsFile.add(' ')
       redirectsFile.addInt(r.type)
       redirectsFile.add("\n")
-    when defined(testrun):
-      writeFile(pages.builder.outputDir & "/_redirects", redirectsFile)
-    else:
-      writeFile("_redirects", redirectsFile)
+    writeFile(pages.builder.outputDir & "/_redirects", redirectsFile)
   echo "added redirects to config"
   reset(pages.redirects)
 

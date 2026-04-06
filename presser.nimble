@@ -13,10 +13,10 @@ requires "margrave#HEAD"
 requires "https://github.com/metagn/rot#HEAD"
 
 task runBuilder, "runs builder":
-  exec "nim r -d:release src/builder"
+  exec "nim r -d:release src/presser"
 
 task testBuilder, "tests builder":
-  exec "nim r -d:release -d:testrun src/builder"
+  exec "nim r -d:release -d:testrun src/presser"
 
 task cleanPublic, "clean public folder":
   rmDir "public"

@@ -1,7 +1,7 @@
 # Package
 
 version       = "0.1.0"
-author        = "blog"
+author        = "metagn"
 description   = "site builder for blog"
 license       = "MIT"
 

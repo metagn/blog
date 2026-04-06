@@ -1,4 +1,4 @@
-import builder/[common, pages], os, strutils
+import presser/[common, pages], os, strutils
 
 proc main() =
   var builder = Builder(
